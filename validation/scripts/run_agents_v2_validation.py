@@ -33,7 +33,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from config import load_config
+from config import filter_inference_deployments, load_config
 
 logger = logging.getLogger("validation_harness")
 
@@ -882,7 +882,9 @@ def main() -> None:
     ):
         _attach_hooks_to_openai_client(openai_client, recorder)
 
-        all_models = sorted([d.name for d in project_client.deployments.list()])
+        deployments = list(project_client.deployments.list())
+        inference_deployments, embedding_deployments = filter_inference_deployments(deployments)
+        all_models = sorted([d.name for d in inference_deployments])
         default_model = cfg.default_model_deployment_name
         if default_model not in all_models:
             all_models.insert(0, default_model)
@@ -892,6 +894,9 @@ def main() -> None:
         else:
             non_default = [m for m in all_models if m != default_model]
             models_to_test = [default_model] + non_default
+        if embedding_deployments:
+            skipped = ", ".join(sorted(d.name for d in embedding_deployments))
+            logger.info("Skipping embedding deployments for validation model loops: %s", skipped)
         logger.info("Models selected=%s", ", ".join(models_to_test))
 
         probe = ProbeRunner(

@@ -1,6 +1,8 @@
 import os
+import json
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from dotenv import load_dotenv
 
@@ -54,3 +56,36 @@ def load_config() -> FoundryConfig:
         default_model_deployment_name=os.getenv("AZURE_AI_MODEL_DEPLOYMENT_NAME", "gpt-5-mini"),
         agent_name_prefix=os.getenv("AGENT_NAME_PREFIX") or os.getenv("BUGBASH_AGENT_NAME_PREFIX", "ValidationAgent"),
     )
+
+
+def deployment_as_dict(deployment: Any) -> dict[str, Any]:
+    if hasattr(deployment, "as_dict") and callable(getattr(deployment, "as_dict")):
+        try:
+            return deployment.as_dict()
+        except Exception:  # noqa: BLE001
+            pass
+    if isinstance(deployment, dict):
+        return deployment
+    return {}
+
+
+def is_embedding_deployment(deployment: Any) -> bool:
+    data = deployment_as_dict(deployment)
+    name = (getattr(deployment, "name", None) or data.get("name") or "").lower()
+    if "embedding" in name:
+        return True
+
+    blob = json.dumps(data, ensure_ascii=False).lower() if data else ""
+    # Broad match is acceptable here because embedding deployments are not valid for chat/response tests.
+    return "embedding" in blob
+
+
+def filter_inference_deployments(deployments: list[Any]) -> tuple[list[Any], list[Any]]:
+    inference: list[Any] = []
+    embedding: list[Any] = []
+    for d in deployments:
+        if is_embedding_deployment(d):
+            embedding.append(d)
+        else:
+            inference.append(d)
+    return inference, embedding

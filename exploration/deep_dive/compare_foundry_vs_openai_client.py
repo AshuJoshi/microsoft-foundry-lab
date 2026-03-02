@@ -1,8 +1,14 @@
 import json
+import sys
+from pathlib import Path
 
 from openai import OpenAI
 from azure.ai.projects import AIProjectClient
 from azure.identity import DefaultAzureCredential, get_bearer_token_provider
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 from config import load_config
 

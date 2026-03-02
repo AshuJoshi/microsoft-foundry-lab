@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 import time
 from dataclasses import dataclass, asdict
 from datetime import datetime, timezone
@@ -10,7 +11,11 @@ from openai import OpenAI
 from azure.ai.projects import AIProjectClient
 from azure.identity import DefaultAzureCredential, get_bearer_token_provider
 
-from config import load_config
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from config import filter_inference_deployments, load_config
 
 
 @dataclass
@@ -105,7 +110,9 @@ def main() -> None:
     credential = DefaultAzureCredential()
 
     with AIProjectClient(endpoint=cfg.project_endpoint, credential=credential) as project:
-        models = [d.name for d in project.deployments.list()]
+        deployments = list(project.deployments.list())
+    inference_deployments, _ = filter_inference_deployments(deployments)
+    models = [d.name for d in inference_deployments]
 
     project_endpoint = cfg.project_endpoint.rstrip("/") + "/openai"
     aoai_endpoint = f"https://{cfg.resource_name}.openai.azure.com/openai/v1/"
