@@ -1,0 +1,23 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Local environment config
+.env
+
+# Local uv cache
+.uv-cache/
+
+# Generated exploration artifacts
+exploration/deep_dive/output/
+
+# Generated validation artifacts
+validation/logs/
+validation/results/
