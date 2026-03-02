@@ -70,6 +70,12 @@ Optional (faster smoke pass):
 bash validation/scripts/run_python_validation.sh --default-model-only
 ```
 
+Verbose logs:
+
+```bash
+bash validation/scripts/run_python_validation.sh --default-model-only --retries 1 --log-level DEBUG
+```
+
 ## Notes
 
 - Web Search may incur extra costs and has data-boundary implications.
@@ -94,6 +100,8 @@ bash validation/scripts/run_python_validation.sh --default-model-only
   - start/end timestamps (UTC)
   - latency in ms
   - attempt index and retry budget
+- Harness now logs per-step execution to console in real time, and the same stream is captured in
+  `validation/results/<run_id>/harness.log`.
 
 ## Failure Report Checklist
 

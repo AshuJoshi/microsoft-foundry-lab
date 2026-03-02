@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import importlib.metadata
 import json
+import logging
 import platform
 import re
 import sys
@@ -24,6 +25,7 @@ from azure.ai.projects.models import (
     WebSearchApproximateLocation,
     WebSearchTool,
 )
+from azure.core.pipeline.policies import SansIOHTTPPolicy
 from azure.identity import DefaultAzureCredential
 from openai.types.responses.response_input_param import FunctionCallOutput, McpApprovalResponse
 
@@ -32,6 +34,8 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from config import load_config
+
+logger = logging.getLogger("validation_harness")
 
 
 @dataclass
@@ -76,14 +80,59 @@ class HeaderRecorder:
         self.last_url: str | None = None
         self.last_method: str | None = None
 
-    def on_request(self, request: httpx.Request) -> None:
+    def on_httpx_request(self, request: httpx.Request) -> None:
         self.last_request_headers = {k.lower(): v for k, v in request.headers.items()}
         self.last_url = str(request.url)
         self.last_method = request.method
 
-    def on_response(self, response: httpx.Response) -> None:
+    def on_httpx_response(self, response: httpx.Response) -> None:
         self.last_response_headers = {k.lower(): v for k, v in response.headers.items()}
         self.last_status_code = response.status_code
+
+    def on_azure_request(self, request: Any) -> None:
+        headers = getattr(request, "headers", {}) or {}
+        self.last_request_headers = {str(k).lower(): str(v) for k, v in headers.items()}
+        self.last_url = str(getattr(request, "url", ""))
+        self.last_method = str(getattr(request, "method", ""))
+
+    def on_azure_response(self, response: Any) -> None:
+        headers = getattr(response, "headers", {}) or {}
+        self.last_response_headers = {str(k).lower(): str(v) for k, v in headers.items()}
+        self.last_status_code = int(getattr(response, "status_code", 0) or 0) or None
+
+
+class AzurePipelineRecorderPolicy(SansIOHTTPPolicy):
+    def __init__(self, recorder: HeaderRecorder) -> None:
+        super().__init__()
+        self._recorder = recorder
+
+    def on_request(self, request: Any) -> None:
+        self._recorder.on_azure_request(request.http_request)
+
+    def on_response(self, request: Any, response: Any) -> None:
+        self._recorder.on_azure_response(response.http_response)
+
+
+def _status_headers_from_exception(exc: Exception) -> tuple[int | None, dict[str, str]]:
+    response = getattr(exc, "response", None)
+    if response is None:
+        return None, {}
+
+    status = getattr(response, "status_code", None)
+    headers = getattr(response, "headers", {}) or {}
+    out = {str(k).lower(): str(v) for k, v in headers.items()}
+    return status, out
+
+
+def _setup_logging(level_name: str) -> None:
+    level = getattr(logging, level_name.upper(), logging.INFO)
+    logging.basicConfig(
+        level=level,
+        format="%(asctime)s %(levelname)s %(message)s",
+        datefmt="%Y-%m-%dT%H:%M:%S",
+        stream=sys.stdout,
+        force=True,
+    )
 
 
 def _redact_headers(headers: dict[str, str]) -> dict[str, str]:
@@ -122,6 +171,15 @@ class ProbeRunner:
         last_exc: Exception | None = None
 
         for attempt in range(1, self.retries_allowed + 2):
+            logger.info(
+                "START test_group=%s test_case=%s model=%s api_style=%s attempt=%s/%s",
+                test_group,
+                test_case,
+                model,
+                api_style,
+                attempt,
+                self.retries_allowed + 1,
+            )
             self.recorder.clear()
             start = datetime.now(timezone.utc)
             t0 = time.perf_counter()
@@ -142,6 +200,11 @@ class ProbeRunner:
                 end = datetime.now(timezone.utc)
                 latency_ms = int((time.perf_counter() - t0) * 1000)
                 response_headers = dict(self.recorder.last_response_headers)
+                status_code = self.recorder.last_status_code
+                if not response_headers and last_exc is not None:
+                    status_from_exc, headers_from_exc = _status_headers_from_exception(last_exc)
+                    response_headers = headers_from_exc
+                    status_code = status_from_exc
                 provider_headers = {
                     k: v
                     for k, v in response_headers.items()
@@ -169,7 +232,7 @@ class ProbeRunner:
                         success=success,
                         error_type=err_type,
                         error_message=err_msg,
-                        status_code=self.recorder.last_status_code,
+                        status_code=status_code,
                         start_time_utc=start.isoformat(),
                         end_time_utc=end.isoformat(),
                         latency_ms=latency_ms,
@@ -183,6 +246,26 @@ class ProbeRunner:
                         provider_headers=provider_headers,
                     )
                 )
+                if success:
+                    logger.info(
+                        "DONE  test_case=%s model=%s status=%s latency_ms=%s apim_request_id=%s x_request_id=%s",
+                        test_case,
+                        model,
+                        status_code,
+                        latency_ms,
+                        response_headers.get("apim-request-id"),
+                        response_headers.get("x-request-id"),
+                    )
+                else:
+                    logger.warning(
+                        "FAIL  test_case=%s model=%s status=%s latency_ms=%s error_type=%s error=%s",
+                        test_case,
+                        model,
+                        status_code,
+                        latency_ms,
+                        err_type,
+                        err_msg,
+                    )
 
             if success:
                 return result
@@ -683,7 +766,7 @@ def run_tool_function(
 def _attach_hooks_to_openai_client(openai_client: Any, recorder: HeaderRecorder) -> None:
     inner = getattr(openai_client, "_client", None)
     if inner is not None and hasattr(inner, "event_hooks"):
-        inner.event_hooks = {"request": [recorder.on_request], "response": [recorder.on_response]}
+        inner.event_hooks = {"request": [recorder.on_httpx_request], "response": [recorder.on_httpx_response]}
 
 
 def _write_outputs(out_dir: Path, records: list[CallRecord], run_metadata: dict[str, Any]) -> None:
@@ -751,6 +834,12 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run Foundry Agents v2 validation with metadata capture.")
     parser.add_argument("--retries", type=int, default=0, help="Retries per API call after initial attempt.")
     parser.add_argument(
+        "--log-level",
+        type=str,
+        default="INFO",
+        help="Logging level (DEBUG, INFO, WARNING, ERROR). Default: INFO.",
+    )
+    parser.add_argument(
         "--run-id",
         type=str,
         default="",
@@ -772,8 +861,11 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+    _setup_logging(args.log_level)
     cfg = load_config()
     run_id = args.run_id.strip() or datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    logger.info("Validation run started run_id=%s", run_id)
+    logger.info("Project endpoint=%s", cfg.project_endpoint)
 
     recorder = HeaderRecorder()
     records: list[CallRecord] = []
@@ -781,7 +873,11 @@ def main() -> None:
 
     with (
         DefaultAzureCredential() as credential,
-        AIProjectClient(endpoint=cfg.project_endpoint, credential=credential) as project_client,
+        AIProjectClient(
+            endpoint=cfg.project_endpoint,
+            credential=credential,
+            per_call_policies=[AzurePipelineRecorderPolicy(recorder)],
+        ) as project_client,
         project_client.get_openai_client() as openai_client,
     ):
         _attach_hooks_to_openai_client(openai_client, recorder)
@@ -796,6 +892,7 @@ def main() -> None:
         else:
             non_default = [m for m in all_models if m != default_model]
             models_to_test = [default_model] + non_default
+        logger.info("Models selected=%s", ", ".join(models_to_test))
 
         probe = ProbeRunner(
             run_id=run_id,
@@ -806,6 +903,7 @@ def main() -> None:
         )
 
         for model in models_to_test:
+            logger.info("MODEL START model=%s", model)
             cases: list[tuple[str, Callable[[], None]]] = [
                 ("test-1.basic_response", lambda m=model: run_basic_response(openai_client, probe, m)),
                 (
@@ -836,7 +934,8 @@ def main() -> None:
                     case_fn()
                 except Exception as exc:  # noqa: BLE001
                     failed_cases.append(f"{model}:{case_name}:{type(exc).__name__}:{exc}")
-                    print(f"[WARN] {model} {case_name} failed: {type(exc).__name__}: {exc}")
+                    logger.warning("%s %s failed: %s: %s", model, case_name, type(exc).__name__, exc)
+            logger.info("MODEL END model=%s", model)
 
     out_dir = Path(args.out_dir) if args.out_dir else (Path("validation/results") / run_id)
     run_metadata = {
@@ -851,6 +950,8 @@ def main() -> None:
         "failed_cases": failed_cases,
     }
     _write_outputs(out_dir, records, run_metadata)
+    logger.info("Validation run completed run_id=%s failed_cases=%s", run_id, len(failed_cases))
+    logger.info("Artifacts markdown=%s json=%s tsv=%s", out_dir / "run_log.md", out_dir / "run_log.json", out_dir / "summary.tsv")
 
     print(f"Run completed: {run_id}")
     print(f"Markdown: {out_dir / 'run_log.md'}")
