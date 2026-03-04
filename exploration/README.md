@@ -17,6 +17,7 @@ This area contains exploratory work, probes, and architecture artifacts.
 - `exploration/deep_dive/compatibility_matrix.py`: endpoint/API/model compatibility matrix.
 - `exploration/deep_dive/compatibility_matrix_clients_headers.py`: compatibility matrix with header capture.
 - `exploration/deep_dive/latency_non_openai.py`: latency benchmark for non-OpenAI models.
+- `exploration/deep_dive/probe_responses_schema_fields.py`: probes `responses.create` field acceptance across endpoint families.
 
 ## Environment Inputs
 
@@ -40,6 +41,7 @@ uv run exploration/deep_dive/compatibility_matrix.py
 uv run exploration/deep_dive/compatibility_matrix_clients_headers.py
 uv run exploration/deep_dive/latency_non_openai.py
 uv run exploration/deep_dive/map_endpoints.py
+uv run exploration/deep_dive/probe_responses_schema_fields.py --model gpt-5.2 --endpoint all --out-dir exploration/deep_dive/output
 ```
 
 ## Outputs
