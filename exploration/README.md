@@ -18,6 +18,18 @@ This area contains exploratory work, probes, and architecture artifacts.
 - `exploration/deep_dive/compatibility_matrix_clients_headers.py`: compatibility matrix with header capture.
 - `exploration/deep_dive/latency_non_openai.py`: latency benchmark for non-OpenAI models.
 - `exploration/deep_dive/probe_responses_schema_fields.py`: probes `responses.create` field acceptance across endpoint families.
+  - Supports multi-model runs, live PASS/FAIL console progress, and optional skipping of direct Responses probes for chat-only models.
+  - Case definitions:
+    - `baseline`: minimal payload (`input`, `max_output_tokens`).
+    - `temperature`: adds `temperature=0`.
+    - `top_p`: adds `top_p=1`.
+    - `metadata`: adds a small metadata object.
+    - `reasoning_effort_none`: adds `reasoning={"effort":"none"}`.
+    - `reasoning_effort_low`: adds `reasoning={"effort":"low"}`.
+    - `text_format_text`: adds `text={"format":{"type":"text"}}`.
+    - `text_verbosity_low`: adds `text={"verbosity":"low"}`.
+    - `truncation_disabled`: adds `truncation="disabled"`.
+    - `store_false`: adds `store=False`.
 
 ## Environment Inputs
 
@@ -42,6 +54,8 @@ uv run exploration/deep_dive/compatibility_matrix_clients_headers.py
 uv run exploration/deep_dive/latency_non_openai.py
 uv run exploration/deep_dive/map_endpoints.py
 uv run exploration/deep_dive/probe_responses_schema_fields.py --model gpt-5.2 --endpoint all --out-dir exploration/deep_dive/output
+uv run exploration/deep_dive/probe_responses_schema_fields.py --models gpt-5.2,grok-4,Kimi-K2.5 --endpoint all
+uv run exploration/deep_dive/probe_responses_schema_fields.py --all-models --endpoint all
 ```
 
 ## Outputs

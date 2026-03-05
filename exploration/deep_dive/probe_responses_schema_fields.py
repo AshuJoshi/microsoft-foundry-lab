@@ -41,6 +41,8 @@ class ProbeRecord:
     x_request_id: str | None
     x_ms_region: str | None
     request_url: str | None
+    skipped: bool
+    skip_reason: str | None
     payload: dict[str, Any]
 
 
@@ -66,12 +68,38 @@ def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Differential probe for Responses API field acceptance.")
     p.add_argument("--model", default=cfg.default_model_deployment_name, help="Deployment/model to use for probes.")
     p.add_argument(
+        "--models",
+        default="",
+        help="Comma-separated model/deployment names to test. Overrides --model when set.",
+    )
+    p.add_argument(
+        "--all-models",
+        action="store_true",
+        help="Discover inference deployments from project and test all of them.",
+    )
+    p.add_argument(
         "--endpoint-mode",
+        "--endpoint",
+        dest="endpoint_mode",
         choices=["all", "project_bridge", "resource_openai_v1", "resource_services_v1"],
         default="all",
         help="Which endpoint families to test.",
     )
     p.add_argument("--prompt", default="Reply with exactly: schema-probe-ok", help="Prompt input for all cases.")
+    p.add_argument(
+        "--out-dir",
+        default=str(Path(__file__).resolve().parent / "output"),
+        help="Output directory for JSON/Markdown reports.",
+    )
+    p.add_argument(
+        "--skip-direct-responses-unsupported",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help=(
+            "Skip direct openai/v1 endpoint probes for models whose deployment metadata indicates "
+            "Responses API is unsupported."
+        ),
+    )
     return p.parse_args()
 
 
@@ -114,6 +142,75 @@ def _mk_cases(prompt: str) -> list[tuple[str, dict[str, Any]]]:
         ("truncation_disabled", {"input": prompt, "max_output_tokens": 30, "truncation": "disabled"}),
         ("store_false", {"input": prompt, "max_output_tokens": 30, "store": False}),
     ]
+
+
+def _looks_like_responses_supported(deployment: Any) -> bool | None:
+    data: dict[str, Any] = {}
+    if hasattr(deployment, "as_dict") and callable(getattr(deployment, "as_dict")):
+        try:
+            data = deployment.as_dict()
+        except Exception:  # noqa: BLE001
+            data = {}
+    blob = json.dumps(data, ensure_ascii=False).lower() if data else ""
+
+    # Strong negative hints first.
+    if blob and "chat completions" in blob and "responses" not in blob:
+        return False
+
+    if blob:
+        positive_hints = [
+            "responses",
+            "response api",
+            "/responses",
+        ]
+        for hint in positive_hints:
+            if hint in blob:
+                return True
+
+    return None
+
+
+def _resolve_models(cfg: Any, args: argparse.Namespace) -> tuple[list[str], dict[str, bool | None]]:
+    explicit_models: list[str] = []
+    if args.models.strip():
+        explicit_models = [m.strip() for m in args.models.split(",") if m.strip()]
+
+    model_cap_hints: dict[str, bool | None] = {}
+    discovered_models: list[str] = []
+
+    if args.all_models or not explicit_models:
+        with DefaultAzureCredential() as credential:
+            with AIProjectClient(endpoint=cfg.project_endpoint, credential=credential) as project_client:
+                deployments = list(project_client.deployments.list())
+        for d in deployments:
+            name = getattr(d, "name", None)
+            if not name:
+                continue
+            # Exclude embeddings for this probe surface.
+            if "embedding" in name.lower():
+                continue
+            discovered_models.append(name)
+            model_cap_hints[name] = _looks_like_responses_supported(d)
+
+    if args.all_models:
+        models = discovered_models
+    elif explicit_models:
+        models = explicit_models
+    else:
+        models = [args.model]
+
+    # Deduplicate while preserving order.
+    deduped: list[str] = []
+    seen: set[str] = set()
+    for m in models:
+        if m not in seen:
+            deduped.append(m)
+            seen.add(m)
+
+    for m in deduped:
+        model_cap_hints.setdefault(m, None)
+
+    return deduped, model_cap_hints
 
 
 def _run_case(
@@ -173,6 +270,43 @@ def _run_case(
         x_request_id=h.get("x-request-id"),
         x_ms_region=h.get("x-ms-region"),
         request_url=recorder.request_url,
+        skipped=False,
+        skip_reason=None,
+        payload=body,
+    )
+
+
+def _skipped_case(
+    run_id: str,
+    endpoint_label: str,
+    endpoint_url: str,
+    auth_scope: str,
+    model: str,
+    case_name: str,
+    payload: dict[str, Any],
+    reason: str,
+) -> ProbeRecord:
+    body = {"model": model, **payload}
+    return ProbeRecord(
+        run_id=run_id,
+        endpoint_label=endpoint_label,
+        endpoint_url=endpoint_url,
+        auth_scope=auth_scope,
+        model=model,
+        case_name=case_name,
+        success=False,
+        status_code=None,
+        latency_ms=0,
+        error_type=None,
+        error_code=None,
+        error_param=None,
+        error_message=None,
+        apim_request_id=None,
+        x_request_id=None,
+        x_ms_region=None,
+        request_url=None,
+        skipped=True,
+        skip_reason=reason,
         payload=body,
     )
 
@@ -195,15 +329,48 @@ def _write_reports(run_id: str, records: list[ProbeRecord], out_dir: Path, metad
     for k, v in metadata.items():
         lines.append(f"- {k}: {v}")
     lines.append("")
-    lines.append("| Endpoint | Case | Success | Status | Error Type | Error Param | Latency (ms) | apim-request-id |")
-    lines.append("|---|---|---|---:|---|---|---:|---|")
+    lines.append("| Model | Endpoint | Case | Success | Status | Error Type | Error Param | Latency (ms) | Skipped | apim-request-id |")
+    lines.append("|---|---|---|---|---:|---|---|---:|---|---|")
     for r in records:
         lines.append(
-            f"| {r.endpoint_label} | {r.case_name} | {'yes' if r.success else 'no'} | {r.status_code or '-'} | {r.error_type or '-'} | {r.error_param or '-'} | {r.latency_ms} | {r.apim_request_id or '-'} |"
+            f"| {r.model} | {r.endpoint_label} | {r.case_name} | {'yes' if r.success else 'no'} | {r.status_code or '-'} | {r.error_type or '-'} | {r.error_param or '-'} | {r.latency_ms} | {'yes' if r.skipped else 'no'} | {r.apim_request_id or '-'} |"
         )
 
     md_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return md_path, json_path
+
+
+def _print_progress(r: ProbeRecord) -> None:
+    if r.skipped:
+        print(f"SKIP  model={r.model} endpoint={r.endpoint_label} case={r.case_name} reason={r.skip_reason}")
+        return
+    status = r.status_code if r.status_code is not None else "-"
+    if r.success:
+        print(f"PASS  model={r.model} endpoint={r.endpoint_label} case={r.case_name} status={status} latency_ms={r.latency_ms}")
+    else:
+        print(
+            "FAIL  "
+            f"model={r.model} endpoint={r.endpoint_label} case={r.case_name} "
+            f"status={status} error_type={r.error_type or '-'} error_param={r.error_param or '-'} latency_ms={r.latency_ms}"
+        )
+
+
+def _print_summary(records: list[ProbeRecord]) -> None:
+    key_stats: dict[tuple[str, str], dict[str, int]] = {}
+    for r in records:
+        key = (r.model, r.endpoint_label)
+        s = key_stats.setdefault(key, {"pass": 0, "fail": 0, "skip": 0})
+        if r.skipped:
+            s["skip"] += 1
+        elif r.success:
+            s["pass"] += 1
+        else:
+            s["fail"] += 1
+
+    print("")
+    print("Summary by model+endpoint:")
+    for (model, endpoint), s in sorted(key_stats.items()):
+        print(f"  {model:28} {endpoint:22} pass={s['pass']:2d} fail={s['fail']:2d} skip={s['skip']:2d}")
 
 
 def main() -> None:
@@ -211,6 +378,7 @@ def main() -> None:
     cfg = load_config()
     run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     cases = _mk_cases(args.prompt)
+    models, model_cap_hints = _resolve_models(cfg, args)
     records: list[ProbeRecord] = []
 
     endpoint_cases = []
@@ -249,20 +417,21 @@ def main() -> None:
                 with AIProjectClient(endpoint=cfg.project_endpoint, credential=credential) as project_client:
                     with project_client.get_openai_client() as client:
                         _attach_hooks_to_openai_client(client, recorder)
-                        for case_name, payload in cases:
-                            records.append(
-                                _run_case(
+                        for model in models:
+                            for case_name, payload in cases:
+                                rec = _run_case(
                                     run_id=run_id,
                                     endpoint_label=ep["label"],
                                     endpoint_url=ep["url"],
                                     auth_scope=ep["scope"],
                                     client=client,
                                     recorder=recorder,
-                                    model=args.model,
+                                    model=model,
                                     case_name=case_name,
                                     payload=payload,
                                 )
-                            )
+                                records.append(rec)
+                                _print_progress(rec)
             else:
                 provider = get_bearer_token_provider(credential, ep["scope"])
                 with OpenAI(
@@ -270,31 +439,51 @@ def main() -> None:
                     api_key=provider,
                     http_client=httpx.Client(event_hooks={"request": [recorder.on_request], "response": [recorder.on_response]}),
                 ) as client:
-                    for case_name, payload in cases:
-                        records.append(
-                            _run_case(
+                    for model in models:
+                        if args.skip_direct_responses_unsupported and model_cap_hints.get(model) is False:
+                            reason = "deployment metadata indicates chat-completions-only support"
+                            for case_name, payload in cases:
+                                rec = _skipped_case(
+                                    run_id=run_id,
+                                    endpoint_label=ep["label"],
+                                    endpoint_url=ep["url"],
+                                    auth_scope=ep["scope"],
+                                    model=model,
+                                    case_name=case_name,
+                                    payload=payload,
+                                    reason=reason,
+                                )
+                                records.append(rec)
+                                _print_progress(rec)
+                            continue
+
+                        for case_name, payload in cases:
+                            rec = _run_case(
                                 run_id=run_id,
                                 endpoint_label=ep["label"],
                                 endpoint_url=ep["url"],
                                 auth_scope=ep["scope"],
                                 client=client,
                                 recorder=recorder,
-                                model=args.model,
+                                model=model,
                                 case_name=case_name,
                                 payload=payload,
                             )
-                        )
+                            records.append(rec)
+                            _print_progress(rec)
 
-    out_dir = Path(__file__).resolve().parent / "output"
+    out_dir = Path(args.out_dir)
     metadata = {
         "run_id": run_id,
-        "model": args.model,
+        "models": ", ".join(models),
         "project_endpoint": cfg.project_endpoint,
         "endpoint_mode": args.endpoint_mode,
+        "skip_direct_responses_unsupported": args.skip_direct_responses_unsupported,
         "cases": ", ".join([name for name, _ in cases]),
         "note": "Exploration-only differential schema acceptance probe for responses.create",
     }
     md_path, json_path = _write_reports(run_id, records, out_dir, metadata)
+    _print_summary(records)
     print(md_path)
     print(json_path)
 
