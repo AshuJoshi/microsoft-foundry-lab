@@ -36,7 +36,7 @@ This area contains exploratory work, probes, and architecture artifacts.
 - `exploration/deep_dive/agents_memory_exploration.py`: explores agent+memory behavior with SDK and request metadata capture.
 - `exploration/deep_dive/probe_embedding_model.py`: probes embedding deployment behavior across endpoint modes.
 - `exploration/deep_dive/run_memory_docs_sample.py`: runs a docs-aligned memory sample workflow end-to-end.
-- `exploration/deep_dive/web_search_foundry_vs_openai_native.py`: compares Foundry SDK web-search-tool path (preview behavior) against OpenAI native `web_search` and computes per-case URL overlap/differences.
+- `exploration/deep_dive/web_search_foundry_vs_openai_native.py`: compares Foundry SDK web-search-tool path against OpenAI native `web_search` and computes per-case URL overlap/differences.
 - `exploration/deep_dive/cases/web_search_foundry_vs_openai_native.json`: reusable case templates for web-search result comparison (`{topic}`, `{since_date}`, `{days_window}`).
 
 ## Environment Inputs
