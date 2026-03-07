@@ -1,0 +1,21 @@
+{
+  "description": "Comparison cases for Foundry web_search_preview path vs OpenAI native web_search. Templates support {topic}, {since_date}, {days_window}.",
+  "cases": [
+    {
+      "name": "baseline_top5",
+      "prompt_template": "Search the web for updates about {topic}. Return exactly 5 bullets. Each bullet must include title, source URL, and date."
+    },
+    {
+      "name": "recent_window_enforced",
+      "prompt_template": "Find updates about {topic} published on or after {since_date} (last {days_window} days). Return exactly 5 bullets with title, source URL, and date. If date cannot be verified, explicitly write 'date_unverified'."
+    },
+    {
+      "name": "breaking_news_focus",
+      "prompt_template": "For topic {topic}, prioritize time-sensitive developments from the last {days_window} days only. Return a JSON array with exactly 5 objects and keys: title,url,date,why_relevant."
+    },
+    {
+      "name": "cve_recent_disclosures",
+      "prompt_template": "Find newly disclosed CVEs in the last {days_window} days related to {topic}. Return exactly 5 bullets. Each bullet must include: CVE ID, disclosure/publication date, affected product, source URL. If no CVE is found, say 'no_recent_cve_found' and provide 2 authoritative source URLs checked."
+    }
+  ]
+}
