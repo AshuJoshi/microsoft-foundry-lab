@@ -16,7 +16,7 @@ This area contains exploratory work, probes, and architecture artifacts.
 - `exploration/deep_dive/compare_foundry_vs_openai_client.py`: compare Foundry bridge vs direct client usage.
 - `exploration/deep_dive/compatibility_matrix.py`: endpoint/API/model compatibility matrix.
 - `exploration/deep_dive/compatibility_matrix_clients_headers.py`: compatibility matrix with header capture.
-- `exploration/deep_dive/latency_non_openai.py`: latency benchmark for non-OpenAI models.
+- `exploration/deep_dive/latency_non_openai.py`: latency benchmark for all discovered inference models, comparing model-family-specific endpoint/API paths.
 - `exploration/deep_dive/probe_responses_schema_fields.py`: probes `responses.create` field acceptance across endpoint families.
   - Supports multi-model runs, live PASS/FAIL console progress, and optional skipping of direct Responses probes for chat-only models.
   - Case definitions:
@@ -30,6 +30,14 @@ This area contains exploratory work, probes, and architecture artifacts.
     - `text_verbosity_low`: adds `text={"verbosity":"low"}`.
     - `truncation_disabled`: adds `truncation="disabled"`.
     - `store_false`: adds `store=False`.
+- `exploration/deep_dive/agent_http_tool_exploration.py`: creates a temporary Foundry agent with a local `http_request` function tool handler and captures tool-call behavior.
+- `exploration/deep_dive/http_request.py`: original HTTP tool source copied from prior `AgentExp` work and reused by `agent_http_tool_exploration.py`.
+- `exploration/deep_dive/list_sdk_tools.py`: enumerates tool-related model classes exported by `azure.ai.projects.models`.
+- `exploration/deep_dive/agents_memory_exploration.py`: explores agent+memory behavior with SDK and request metadata capture.
+- `exploration/deep_dive/probe_embedding_model.py`: probes embedding deployment behavior across endpoint modes.
+- `exploration/deep_dive/run_memory_docs_sample.py`: runs a docs-aligned memory sample workflow end-to-end.
+- `exploration/deep_dive/web_search_foundry_vs_openai_native.py`: compares Foundry SDK web-search-tool path (preview behavior) against OpenAI native `web_search` and computes per-case URL overlap/differences.
+- `exploration/deep_dive/cases/web_search_foundry_vs_openai_native.json`: reusable case templates for web-search result comparison (`{topic}`, `{since_date}`, `{days_window}`).
 
 ## Environment Inputs
 
@@ -56,6 +64,13 @@ uv run exploration/deep_dive/map_endpoints.py
 uv run exploration/deep_dive/probe_responses_schema_fields.py --model gpt-5.2 --endpoint all --out-dir exploration/deep_dive/output
 uv run exploration/deep_dive/probe_responses_schema_fields.py --models gpt-5.2,grok-4,Kimi-K2.5 --endpoint all
 uv run exploration/deep_dive/probe_responses_schema_fields.py --all-models --endpoint all
+uv run exploration/deep_dive/agent_http_tool_exploration.py --model gpt-5-mini
+uv run exploration/deep_dive/list_sdk_tools.py
+uv run exploration/deep_dive/agents_memory_exploration.py --model gpt-5-mini
+uv run exploration/deep_dive/probe_embedding_model.py --model text-embedding-3-small --mode all
+uv run exploration/deep_dive/run_memory_docs_sample.py --chat-model gpt-5-mini --embedding-model text-embedding-3-small --wait-seconds 5
+uv run exploration/deep_dive/web_search_foundry_vs_openai_native.py --model gpt-5-mini --tool-choice required --no-stream
+uv run exploration/deep_dive/web_search_foundry_vs_openai_native.py --model gpt-5-mini --topic "NVIDIA quarterly earnings and guidance" --days-window 14 --cases-file exploration/deep_dive/cases/web_search_foundry_vs_openai_native.json --tool-choice required --no-stream
 ```
 
 ## Outputs
