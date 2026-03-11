@@ -32,6 +32,8 @@ This area contains exploratory work, probes, and architecture artifacts.
     - `store_false`: adds `store=False`.
 - `exploration/deep_dive/agent_http_tool_exploration.py`: creates a temporary Foundry agent with a local `http_request` function tool handler and captures tool-call behavior.
 - `exploration/deep_dive/http_request.py`: original HTTP tool source copied from prior `AgentExp` work and reused by `agent_http_tool_exploration.py`.
+- `exploration/deep_dive/try_model.py`: quick interactive probe for a deployment. In `auto` mode it uses `responses` on the project endpoint for OpenAI models and `chat.completions` on the AOAI endpoint for non-OpenAI models.
+- `exploration/deep_dive/model_router_probe.py`: dedicated probe for the `model-router` deployment across the supported paths (`aoai + chat.completions` and `project + responses`), including the concrete backend model returned on each run.
 - `exploration/deep_dive/list_sdk_tools.py`: enumerates tool-related model classes exported by `azure.ai.projects.models`.
 - `exploration/deep_dive/agents_memory_exploration.py`: explores agent+memory behavior with SDK and request metadata capture.
 - `exploration/deep_dive/probe_embedding_model.py`: probes embedding deployment behavior across endpoint modes.
@@ -65,6 +67,9 @@ uv run exploration/deep_dive/probe_responses_schema_fields.py --model gpt-5.2 --
 uv run exploration/deep_dive/probe_responses_schema_fields.py --models gpt-5.2,grok-4,Kimi-K2.5 --endpoint all
 uv run exploration/deep_dive/probe_responses_schema_fields.py --all-models --endpoint all
 uv run exploration/deep_dive/agent_http_tool_exploration.py --model gpt-5-mini
+uv run exploration/deep_dive/try_model.py --model gpt-4.1 --prompt "Reply exactly: openai-ok"
+uv run exploration/deep_dive/try_model.py --model Mistral-Large-3 --prompt "Reply exactly: non-openai-ok"
+uv run exploration/deep_dive/model_router_probe.py --model model-router --runs 2
 uv run exploration/deep_dive/list_sdk_tools.py
 uv run exploration/deep_dive/agents_memory_exploration.py --model gpt-5-mini
 uv run exploration/deep_dive/probe_embedding_model.py --model text-embedding-3-small --mode all
