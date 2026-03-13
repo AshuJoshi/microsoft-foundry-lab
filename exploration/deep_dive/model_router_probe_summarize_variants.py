@@ -28,6 +28,14 @@ logger = logging.getLogger("model_router_probe")
 PROMPT_CASES = [
     ("echo", "Reply with exactly: model-router-ok"),
     ("summarize", "Summarize why least-privilege access matters in exactly 3 bullets."),
+    (
+        "summarize_alt",
+        "Summarize the benefits of least-privilege access in exactly 2 short paragraphs. Keep it under 120 words.",
+    ),
+    (
+        "summarize_exec",
+        "Write a concise executive summary explaining why least-privilege access matters. Use exactly 4 sentences.",
+    ),
     ("code", "Write a Python function that merges two sorted lists."),
     ("reasoning", "You have 9 coins and one is counterfeit and heavier. What is the minimum number of weighings needed?"),
 ]
@@ -79,7 +87,10 @@ def parse_args() -> argparse.Namespace:
     p.add_argument(
         "--cases",
         default="all",
-        help="Comma-separated case set from: echo,summarize,code,reasoning. Default: all.",
+        help=(
+            "Comma-separated case set from: "
+            "echo,summarize,summarize_alt,summarize_exec,code,reasoning. Default: all."
+        ),
     )
     p.add_argument(
         "--paths",
@@ -311,7 +322,7 @@ def main() -> None:
         if not selected_cases:
             raise SystemExit(
                 "No valid cases selected.\n"
-                "Choose from: echo, summarize, code, reasoning"
+                "Choose from: echo, summarize, summarize_alt, summarize_exec, code, reasoning"
             )
 
     logger.info("run_id=%s", run_id)
