@@ -40,6 +40,9 @@ This area contains exploratory work, probes, and architecture artifacts.
 - `exploration/deep_dive/run_memory_docs_sample.py`: runs a docs-aligned memory sample workflow end-to-end.
 - `exploration/deep_dive/web_search_foundry_vs_openai_native.py`: compares Foundry SDK web-search-tool path against OpenAI native `web_search` and computes per-case URL overlap/differences.
 - `exploration/deep_dive/cases/web_search_foundry_vs_openai_native.json`: reusable case templates for web-search result comparison (`{topic}`, `{since_date}`, `{days_window}`).
+- `exploration/deep_dive/search_prompt_probe.py`: direct Responses API probe for `web_search_preview`, comparing `aoai_responses` and `project_responses` with citation/date extraction.
+- `exploration/deep_dive/search_agent_probe.py`: agent-based probe for Foundry `WebSearchTool` using a temporary Prompt agent and remote conversation.
+- `exploration/deep_dive/list_search_tool_resources.py`: inspects project connections and flags search-related resources/configuration visible through the SDK.
 
 ## Environment Inputs
 
@@ -76,6 +79,9 @@ uv run exploration/deep_dive/probe_embedding_model.py --model text-embedding-3-s
 uv run exploration/deep_dive/run_memory_docs_sample.py --chat-model gpt-5-mini --embedding-model text-embedding-3-small --wait-seconds 5
 uv run exploration/deep_dive/web_search_foundry_vs_openai_native.py --model gpt-5-mini --tool-choice required --no-stream
 uv run exploration/deep_dive/web_search_foundry_vs_openai_native.py --model gpt-5-mini --topic "NVIDIA quarterly earnings and guidance" --days-window 14 --cases-file exploration/deep_dive/cases/web_search_foundry_vs_openai_native.json --tool-choice required --no-stream
+uv run exploration/deep_dive/search_prompt_probe.py --model gpt-5.4 --runs 1 --log-level INFO
+uv run exploration/deep_dive/search_agent_probe.py --model gpt-5.4 --runs 1 --log-level INFO
+uv run exploration/deep_dive/list_search_tool_resources.py --log-level INFO
 ```
 
 ## Outputs
