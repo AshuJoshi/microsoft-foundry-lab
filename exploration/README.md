@@ -45,6 +45,7 @@ This area contains exploratory work, probes, and architecture artifacts.
 - `exploration/deep_dive/list_search_tool_resources.py`: inspects project connections and flags search-related resources/configuration visible through the SDK.
 - `exploration/deep_dive/agent_context_limit_probe.py`: batch probe for growing a single Prompt-agent conversation with repeated stuffing/recall turns to study context pressure, throttling, and recall behavior.
 - `exploration/deep_dive/agent_large_tool_payload_probe.py`: Prompt-agent probe that uses a large local tool payload to stress the remote conversation with oversized tool outputs instead of plain user-message stuffing.
+- `exploration/deep_dive/agent_context_stepwise_probe.py`: stepwise Prompt-agent trace probe that preserves the same remote agent and conversation across separate invocations for portal trace inspection and stateful conversation experiments.
 
 ## Environment Inputs
 
@@ -86,6 +87,11 @@ uv run exploration/deep_dive/search_agent_probe.py --model gpt-5.4 --runs 1 --lo
 uv run exploration/deep_dive/list_search_tool_resources.py --log-level INFO
 uv run exploration/deep_dive/agent_context_limit_probe.py --model gpt-5.1 --target-input-tokens 272000 --block-chars 6000 --max-turns 30 --max-output-tokens 120 --sleep-seconds 3 --log-level INFO
 uv run exploration/deep_dive/agent_large_tool_payload_probe.py --model gpt-5.1 --payload-chars 150000 --max-turns 3 --max-output-tokens 120 --sleep-seconds 2 --log-level INFO
+uv run exploration/deep_dive/agent_context_stepwise_probe.py --state exploration/deep_dive/output/run_001/ctxstep.state.json --model gpt-5.1 create-agent
+uv run exploration/deep_dive/agent_context_stepwise_probe.py --state exploration/deep_dive/output/run_001/ctxstep.state.json create-conversation
+uv run exploration/deep_dive/agent_context_stepwise_probe.py --state exploration/deep_dive/output/run_001/ctxstep.state.json stuff --block-chars 6000 --truncation auto
+uv run exploration/deep_dive/agent_context_stepwise_probe.py --state exploration/deep_dive/output/run_001/ctxstep.state.json recall --truncation auto
+uv run exploration/deep_dive/agent_context_stepwise_probe.py --state exploration/deep_dive/output/run_001/ctxstep.state.json cleanup --delete-conversation --delete-agent
 ```
 
 ## Outputs
