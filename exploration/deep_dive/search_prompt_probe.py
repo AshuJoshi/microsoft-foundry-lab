@@ -42,8 +42,11 @@ class ProbeRecord:
     latency_ms: int
     model: str
     output_preview: str | None
+    output_text: str | None
     citation_count: int
     citation_urls: list[str]
+    citation_annotations: list[dict[str, Any]]
+    output_item_types: list[str]
     mentioned_dates: list[str]
     usage: dict[str, Any] | None
     error_type: str | None
@@ -88,6 +91,14 @@ def parse_args() -> argparse.Namespace:
         "--paths",
         default="aoai_responses,project_responses",
         help="Comma-separated path set from: aoai_responses,project_responses.",
+    )
+    p.add_argument("--country", default="US", help="Approximate user country for web search.")
+    p.add_argument("--region", default="WA", help="Approximate user region/state for web search.")
+    p.add_argument("--city", default="Seattle", help="Approximate user city for web search.")
+    p.add_argument(
+        "--search-context-size",
+        default="",
+        help="Optional search context size for web_search_preview, e.g. low, medium, high.",
     )
     return p.parse_args()
 
@@ -145,6 +156,44 @@ def _extract_citation_urls(resp: Any) -> list[str]:
                 if getattr(ann, "type", None) == "url_citation" and getattr(ann, "url", None):
                     urls.append(str(ann.url))
     return sorted(set(urls))
+
+
+def _extract_citation_annotations(resp: Any) -> list[dict[str, Any]]:
+    annotations: list[dict[str, Any]] = []
+    for item in getattr(resp, "output", []) or []:
+        if getattr(item, "type", None) != "message":
+            continue
+        for content in getattr(item, "content", []) or []:
+            if getattr(content, "type", None) != "output_text":
+                continue
+            text_value = getattr(content, "text", None)
+            for ann in getattr(content, "annotations", []) or []:
+                if getattr(ann, "type", None) != "url_citation":
+                    continue
+                annotations.append(
+                    {
+                        "type": str(getattr(ann, "type", "")),
+                        "url": str(getattr(ann, "url", "") or ""),
+                        "title": str(getattr(ann, "title", "") or ""),
+                        "start_index": getattr(ann, "start_index", None),
+                        "end_index": getattr(ann, "end_index", None),
+                        "text_excerpt": text_value,
+                    }
+                )
+    uniq: list[dict[str, Any]] = []
+    seen: set[tuple[Any, ...]] = set()
+    for ann in annotations:
+        key = (ann.get("url"), ann.get("title"), ann.get("start_index"), ann.get("end_index"))
+        if key in seen:
+            continue
+        seen.add(key)
+        uniq.append(ann)
+    return uniq
+
+
+def _output_item_types(resp: Any) -> list[str]:
+    types = [str(getattr(item, "type", "") or "") for item in getattr(resp, "output", []) or []]
+    return [t for t in types if t]
 
 
 def _extract_dates(text: str) -> list[str]:
@@ -223,19 +272,30 @@ def _build_cases(topic: str, days_window: int) -> list[PromptCase]:
     ]
 
 
-def _run_case(client: OpenAI, recorder: HeaderRecorder, model: str, case: PromptCase, endpoint: str, run_index: int) -> ProbeRecord:
+def _run_case(
+    client: OpenAI,
+    recorder: HeaderRecorder,
+    model: str,
+    case: PromptCase,
+    endpoint: str,
+    run_index: int,
+    *,
+    tool_spec: dict[str, Any],
+) -> ProbeRecord:
     t0 = time.perf_counter()
     recorder.clear()
     try:
         resp = client.responses.create(
             model=model,
             input=case.prompt,
-            tools=[{"type": "web_search_preview"}],
+            tools=[tool_spec],
             tool_choice="required",
             max_output_tokens=500,
         )
         latency_ms = int((time.perf_counter() - t0) * 1000)
         output_text = resp.output_text or ""
+        citation_urls = _extract_citation_urls(resp)
+        citation_annotations = _extract_citation_annotations(resp)
         return ProbeRecord(
             endpoint=endpoint,
             case_name=case.name,
@@ -245,8 +305,11 @@ def _run_case(client: OpenAI, recorder: HeaderRecorder, model: str, case: Prompt
             latency_ms=latency_ms,
             model=getattr(resp, "model", model),
             output_preview=output_text[:500] if output_text else None,
-            citation_count=len(_extract_citation_urls(resp)),
-            citation_urls=_extract_citation_urls(resp),
+            output_text=output_text or None,
+            citation_count=len(citation_urls),
+            citation_urls=citation_urls,
+            citation_annotations=citation_annotations,
+            output_item_types=_output_item_types(resp),
             mentioned_dates=_extract_dates(output_text),
             usage=_usage_dict(resp),
             error_type=None,
@@ -266,8 +329,11 @@ def _run_case(client: OpenAI, recorder: HeaderRecorder, model: str, case: Prompt
             latency_ms=latency_ms,
             model=model,
             output_preview=None,
+            output_text=None,
             citation_count=0,
             citation_urls=[],
+            citation_annotations=[],
+            output_item_types=[],
             mentioned_dates=[],
             usage=None,
             error_type=err_type,
@@ -318,6 +384,24 @@ def _write_outputs(run_id: str, payload: dict[str, Any]) -> tuple[Path, Path]:
             f"{headers.get('apim-request-id', '-')} | {headers.get('x-request-id', '-')} | "
             f"{headers.get('x-ms-region', '-')} |"
         )
+    lines.append("")
+    lines.append("## Citations")
+    lines.append("")
+    for rec in payload["records"]:
+        lines.append(f"### {rec['endpoint']} / {rec['case_name']} / run {rec['run_index']}")
+        if not rec.get("citation_annotations"):
+            lines.append("")
+            lines.append("No citation annotations captured.")
+            lines.append("")
+            continue
+        lines.append("")
+        lines.append("| Title | URL |")
+        lines.append("|---|---|")
+        for ann in rec.get("citation_annotations", []):
+            title = str(ann.get("title") or "-").replace("|", "\\|").replace("\n", " ")
+            url = str(ann.get("url") or "-").replace("|", "\\|").replace("\n", " ")
+            lines.append(f"| {title} | {url} |")
+        lines.append("")
     md_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return md_path, json_path
 
@@ -365,7 +449,21 @@ def main() -> None:
         "cases": [c.name for c in selected_cases],
         "project_endpoint": cfg.project_endpoint,
         "aoai_endpoint": f"https://{cfg.resource_name}.openai.azure.com/openai/v1/",
+        "location": f"{args.city}, {args.region}, {args.country}",
+        "search_context_size": args.search_context_size or "-",
     }
+
+    tool_spec: dict[str, Any] = {
+        "type": "web_search_preview",
+        "user_location": {
+            "type": "approximate",
+            "country": args.country,
+            "region": args.region,
+            "city": args.city,
+        },
+    }
+    if args.search_context_size:
+        tool_spec["search_context_size"] = args.search_context_size
 
     records: list[ProbeRecord] = []
     with DefaultAzureCredential() as credential, AIProjectClient(endpoint=cfg.project_endpoint, credential=credential) as project_client:
@@ -391,7 +489,7 @@ def main() -> None:
                         case.name,
                         run_index,
                     )
-                    rec = _run_case(client, recorder, args.model, case, endpoint, run_index)
+                    rec = _run_case(client, recorder, args.model, case, endpoint, run_index, tool_spec=tool_spec)
                     records.append(rec)
                     if rec.success:
                         logger.info(

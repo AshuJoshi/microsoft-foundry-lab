@@ -43,8 +43,10 @@ class ProbeRecord:
     agent_name: str
     conversation_id: str | None
     output_preview: str | None
+    output_text: str | None
     citation_count: int
     citation_urls: list[str]
+    citation_annotations: list[dict[str, Any]]
     mentioned_dates: list[str]
     error_type: str | None
     error_message: str | None
@@ -119,6 +121,30 @@ def _extract_citation_urls_from_item(item: Any) -> list[str]:
     return urls
 
 
+def _extract_citation_annotations_from_item(item: Any) -> list[dict[str, Any]]:
+    annotations: list[dict[str, Any]] = []
+    if getattr(item, "type", None) != "message":
+        return annotations
+    for content in getattr(item, "content", []) or []:
+        if getattr(content, "type", None) != "output_text":
+            continue
+        text_value = getattr(content, "text", None)
+        for ann in getattr(content, "annotations", []) or []:
+            if getattr(ann, "type", None) != "url_citation":
+                continue
+            annotations.append(
+                {
+                    "type": str(getattr(ann, "type", "")),
+                    "url": str(getattr(ann, "url", "") or ""),
+                    "title": str(getattr(ann, "title", "") or ""),
+                    "start_index": getattr(ann, "start_index", None),
+                    "end_index": getattr(ann, "end_index", None),
+                    "text_excerpt": text_value,
+                }
+            )
+    return annotations
+
+
 def _extract_dates(text: str) -> list[str]:
     patterns = [
         r"\b\d{4}-\d{2}-\d{2}\b",
@@ -177,6 +203,7 @@ def _run_case(
     t0 = time.perf_counter()
     output_text = ""
     citation_urls: list[str] = []
+    citation_annotations: list[dict[str, Any]] = []
     try:
         if stream:
             s = openai_client.responses.create(
@@ -191,6 +218,7 @@ def _run_case(
                     output_text += event.delta or ""
                 elif event.type == "response.output_item.done":
                     citation_urls.extend(_extract_citation_urls_from_item(event.item))
+                    citation_annotations.extend(_extract_citation_annotations_from_item(event.item))
                 elif event.type == "response.completed" and not output_text:
                     output_text = event.response.output_text or ""
         else:
@@ -203,21 +231,37 @@ def _run_case(
             output_text = resp.output_text or ""
             for item in getattr(resp, "output", []) or []:
                 citation_urls.extend(_extract_citation_urls_from_item(item))
+                citation_annotations.extend(_extract_citation_annotations_from_item(item))
 
         latency_ms = int((time.perf_counter() - t0) * 1000)
         urls = sorted(set(citation_urls))
+        uniq_annotations: list[dict[str, Any]] = []
+        seen_ann: set[tuple[Any, ...]] = set()
+        for ann in citation_annotations:
+            key = (
+                ann.get("url"),
+                ann.get("title"),
+                ann.get("start_index"),
+                ann.get("end_index"),
+            )
+            if key in seen_ann:
+                continue
+            seen_ann.add(key)
+            uniq_annotations.append(ann)
         return ProbeRecord(
             case_name=case_name,
             run_index=run_index,
             success=True,
             status_code=recorder.last_status_code,
             latency_ms=latency_ms,
-            model=model,
+            model=getattr(locals().get("resp", None), "model", model),
             agent_name=agent_name,
             conversation_id=conversation_id,
             output_preview=output_text[:500] if output_text else None,
+            output_text=output_text or None,
             citation_count=len(urls),
             citation_urls=urls,
+            citation_annotations=uniq_annotations,
             mentioned_dates=_extract_dates(output_text),
             error_type=None,
             error_message=None,
@@ -244,8 +288,10 @@ def _run_case(
             agent_name=agent_name,
             conversation_id=conversation_id,
             output_preview=None,
+            output_text=None,
             citation_count=0,
             citation_urls=[],
+            citation_annotations=[],
             mentioned_dates=[],
             error_type=type(exc).__name__,
             error_message=str(exc),
@@ -295,6 +341,24 @@ def _write_outputs(run_id: str, payload: dict[str, Any]) -> tuple[Path, Path]:
             f"{headers.get('apim-request-id', '-')} | {headers.get('x-request-id', '-')} | "
             f"{headers.get('x-ms-region', '-')} |"
         )
+    lines.append("")
+    lines.append("## Citations")
+    lines.append("")
+    for rec in payload["records"]:
+        lines.append(f"### {rec['case_name']} / run {rec['run_index']}")
+        if not rec.get("citation_annotations"):
+            lines.append("")
+            lines.append("No citation annotations captured.")
+            lines.append("")
+            continue
+        lines.append("")
+        lines.append("| Title | URL |")
+        lines.append("|---|---|")
+        for ann in rec.get("citation_annotations", []):
+            title = str(ann.get("title") or "-").replace("|", "\\|").replace("\n", " ")
+            url = str(ann.get("url") or "-").replace("|", "\\|").replace("\n", " ")
+            lines.append(f"| {title} | {url} |")
+        lines.append("")
     md_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return md_path, json_path
 
@@ -384,7 +448,7 @@ def main() -> None:
                         records.append(rec)
                         if rec.success:
                             logger.info(
-                                "DONE  progress=%s/%s case=%s run=%s status=%s latency_ms=%s citations=%s",
+                                "DONE  progress=%s/%s case=%s run=%s status=%s latency_ms=%s citations=%s served_model=%s",
                                 progress,
                                 total_calls,
                                 case.name,
@@ -392,6 +456,7 @@ def main() -> None:
                                 rec.status_code,
                                 rec.latency_ms,
                                 rec.citation_count,
+                                rec.model,
                             )
                         else:
                             logger.warning(
