@@ -1,0 +1,13 @@
+Invoice ID: INV-1001
+Vendor: Alpine Office Supplies
+Invoice Date: 2025-10-04
+Due Date: 2025-11-03
+Bill To: Woodlands Retail LLC
+Items:
+- Item: Printer Paper A4 (10 reams) | Qty: 2 | Unit Price: $28.50 | Line Total: $57.00
+- Item: Ink Cartridge (Black) | Qty: 1 | Unit Price: $42.00 | Line Total: $42.00
+Subtotal: $99.00
+Tax (8.5%): $8.42
+Total Due: $107.42
+Payment Terms: Net 30
+PO Number: PO-7781

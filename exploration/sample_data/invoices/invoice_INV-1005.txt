@@ -1,0 +1,13 @@
+Invoice ID: INV-1005
+Vendor: Granite Packaging
+Invoice Date: 2025-10-15
+Due Date: 2025-11-14
+Bill To: Woodlands Retail LLC
+Items:
+- Item: Cardboard boxes (large) | Qty: 100 | Unit Price: $1.20 | Line Total: $120.00
+- Item: Packing tape (bulk) | Qty: 10 | Unit Price: $3.50 | Line Total: $35.00
+Subtotal: $155.00
+Tax (8.5%): $13.18
+Total Due: $168.18
+Payment Terms: Net 30
+PO Number: PO-7931

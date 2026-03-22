@@ -1,0 +1,12 @@
+Invoice ID: INV-1003
+Vendor: Summit Cleaning Co.
+Invoice Date: 2025-10-10
+Due Date: 2025-11-09
+Bill To: Woodlands Retail LLC
+Items:
+- Item: Store cleaning service | Qty: 4 | Unit Price: $120.00 | Line Total: $480.00
+Subtotal: $480.00
+Tax (8.5%): $40.80
+Total Due: $520.80
+Payment Terms: Net 30
+PO Number: PO-7842

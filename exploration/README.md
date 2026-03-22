@@ -47,6 +47,14 @@ This area contains exploratory work, probes, and architecture artifacts.
 - `exploration/deep_dive/agent_context_limit_probe.py`: batch probe for growing a single Prompt-agent conversation with repeated stuffing/recall turns to study context pressure, throttling, and recall behavior.
 - `exploration/deep_dive/agent_large_tool_payload_probe.py`: Prompt-agent probe that uses a large local tool payload to stress the remote conversation with oversized tool outputs instead of plain user-message stuffing.
 - `exploration/deep_dive/agent_context_stepwise_probe.py`: stepwise Prompt-agent trace probe that preserves the same remote agent and conversation across separate invocations for portal trace inspection and stateful conversation experiments.
+- `exploration/deep_dive/vector_store_index.py`: creates or reuses a vector store for file-search experiments, either from explicit file paths or a tracked sample corpus such as `invoices`.
+- `exploration/deep_dive/vector_store_inspect.py`: inspects the cached vector store and lists the files attached to it.
+- `exploration/deep_dive/vector_store_delete.py`: deletes the cached vector store and optionally removes the local cache file.
+- `exploration/deep_dive/agent_file_search_probe.py`: agent-based probe for `FileSearchTool` using a temporary Prompt agent, with invoice-specific validation cases, response-shape capture, file-citation capture, and `file_search_call.results` capture.
+
+## Sample Data
+
+- `exploration/sample_data/invoices/`: tracked plain-text invoice corpus used by the file-search probes. The files have stable invoice IDs, PO numbers, vendors, totals, and dates so retrieval behavior can be validated deterministically.
 
 ## Environment Inputs
 
@@ -95,6 +103,11 @@ uv run exploration/deep_dive/agent_context_stepwise_probe.py --state exploration
 uv run exploration/deep_dive/agent_context_stepwise_probe.py --state exploration/deep_dive/output/run_001/ctxstep.state.json stuff --block-chars 6000 --truncation auto
 uv run exploration/deep_dive/agent_context_stepwise_probe.py --state exploration/deep_dive/output/run_001/ctxstep.state.json recall --truncation auto
 uv run exploration/deep_dive/agent_context_stepwise_probe.py --state exploration/deep_dive/output/run_001/ctxstep.state.json cleanup --delete-conversation --delete-agent
+uv run exploration/deep_dive/vector_store_index.py --sample-corpus invoices --log-level INFO
+uv run exploration/deep_dive/vector_store_inspect.py --log-level INFO
+uv run exploration/deep_dive/agent_file_search_probe.py --model gpt-5.1 --cases vendor,total_due,highest_total --runs 1 --log-level INFO
+uv run exploration/deep_dive/agent_file_search_probe.py --model gpt-5.1 --cases quote_ink,ids,summary --runs 1 --log-level INFO
+uv run exploration/deep_dive/vector_store_delete.py --yes --log-level INFO
 ```
 
 ## Outputs

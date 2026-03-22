@@ -1,0 +1,13 @@
+Invoice ID: INV-1004
+Vendor: Northwind IT Services
+Invoice Date: 2025-10-12
+Due Date: 2025-11-11
+Bill To: Woodlands Retail LLC
+Items:
+- Item: POS maintenance (monthly) | Qty: 1 | Unit Price: $250.00 | Line Total: $250.00
+- Item: On-site support | Qty: 2 | Unit Price: $95.00 | Line Total: $190.00
+Subtotal: $440.00
+Tax (8.5%): $37.40
+Total Due: $477.40
+Payment Terms: Net 30
+PO Number: PO-7899

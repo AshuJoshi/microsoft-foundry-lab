@@ -1,0 +1,13 @@
+Invoice ID: INV-1002
+Vendor: BrightPath Logistics
+Invoice Date: 2025-10-08
+Due Date: 2025-11-07
+Bill To: Woodlands Retail LLC
+Items:
+- Item: Freight (Seattle to Portland) | Qty: 1 | Unit Price: $520.00 | Line Total: $520.00
+- Item: Fuel Surcharge | Qty: 1 | Unit Price: $45.00 | Line Total: $45.00
+Subtotal: $565.00
+Tax (0%): $0.00
+Total Due: $565.00
+Payment Terms: Net 30
+PO Number: PO-7810
