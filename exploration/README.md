@@ -47,6 +47,7 @@ This area contains exploratory work, probes, and architecture artifacts.
 - `exploration/deep_dive/agent_context_limit_probe.py`: batch probe for growing a single Prompt-agent conversation with repeated stuffing/recall turns to study context pressure, throttling, and recall behavior.
 - `exploration/deep_dive/agent_large_tool_payload_probe.py`: Prompt-agent probe that uses a large local tool payload to stress the remote conversation with oversized tool outputs instead of plain user-message stuffing.
 - `exploration/deep_dive/agent_context_stepwise_probe.py`: stepwise Prompt-agent trace probe that preserves the same remote agent and conversation across separate invocations for portal trace inspection and stateful conversation experiments.
+- `exploration/deep_dive/agent_web_search_stepwise_probe.py`: stepwise Prompt-agent web-search probe that preserves the same remote agent and conversation across separate invocations for portal testing, later published-agent comparison, and stateful search experiments. Supports named search cases, arbitrary prompts, and concise state summaries.
 - `exploration/deep_dive/data_assets_inspect.py`: inspects the relationship between runtime root `/files`, vector stores, and the cached vector store file attachments; useful for understanding portal `Datasets` vs `Indexes` behavior and identifying orphaned uploaded files.
 - `exploration/deep_dive/vector_store_index.py`: creates or reuses a vector store for file-search experiments, either from explicit file paths or a tracked sample corpus such as `invoices`.
 - `exploration/deep_dive/vector_store_inspect.py`: inspects the cached vector store and lists the files attached to it.
@@ -104,6 +105,12 @@ uv run exploration/deep_dive/agent_context_stepwise_probe.py --state exploration
 uv run exploration/deep_dive/agent_context_stepwise_probe.py --state exploration/deep_dive/output/run_001/ctxstep.state.json stuff --block-chars 6000 --truncation auto
 uv run exploration/deep_dive/agent_context_stepwise_probe.py --state exploration/deep_dive/output/run_001/ctxstep.state.json recall --truncation auto
 uv run exploration/deep_dive/agent_context_stepwise_probe.py --state exploration/deep_dive/output/run_001/ctxstep.state.json cleanup --delete-conversation --delete-agent
+uv run exploration/deep_dive/agent_web_search_stepwise_probe.py --model gpt-5.4 create-agent
+uv run exploration/deep_dive/agent_web_search_stepwise_probe.py --state exploration/deep_dive/output/agent_web_search_stepwise_<run_id>/state.json create-conversation
+uv run exploration/deep_dive/agent_web_search_stepwise_probe.py --state exploration/deep_dive/output/agent_web_search_stepwise_<run_id>/state.json ask-case --case baseline
+uv run exploration/deep_dive/agent_web_search_stepwise_probe.py --state exploration/deep_dive/output/agent_web_search_stepwise_<run_id>/state.json ask --message "Find exactly 2 Microsoft Foundry updates from the last 30 days. Prefer announcement or blog posts over overview documentation pages. For each, include the date, a one-sentence summary, and a source link."
+uv run exploration/deep_dive/agent_web_search_stepwise_probe.py --state exploration/deep_dive/output/agent_web_search_stepwise_<run_id>/state.json show-state --summary
+uv run exploration/deep_dive/agent_web_search_stepwise_probe.py --state exploration/deep_dive/output/agent_web_search_stepwise_<run_id>/state.json cleanup --delete-conversation --delete-agent
 uv run exploration/deep_dive/data_assets_inspect.py --log-level INFO
 uv run exploration/deep_dive/vector_store_index.py --sample-corpus invoices --log-level INFO
 uv run exploration/deep_dive/vector_store_inspect.py --log-level INFO
@@ -111,6 +118,8 @@ uv run exploration/deep_dive/agent_file_search_probe.py --model gpt-5.1 --cases 
 uv run exploration/deep_dive/agent_file_search_probe.py --model gpt-5.1 --cases quote_ink,ids,summary --runs 1 --log-level INFO
 uv run exploration/deep_dive/vector_store_delete.py --yes --log-level INFO
 ```
+
+For the stepwise probes, you may also pass an explicit single-file `--state` path if you want a stable custom name instead of the default run-folder layout.
 
 ## Outputs
 
