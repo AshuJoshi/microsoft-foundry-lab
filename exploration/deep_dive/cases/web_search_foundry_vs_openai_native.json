@@ -1,5 +1,5 @@
 {
-  "description": "Comparison cases for Foundry web_search_preview path vs OpenAI native web_search. Templates support {topic}, {since_date}, {days_window}.",
+  "description": "Comparison cases for Foundry web_search path vs direct web_search. Templates support {topic}, {since_date}, {days_window}.",
   "cases": [
     {
       "name": "baseline_top5",

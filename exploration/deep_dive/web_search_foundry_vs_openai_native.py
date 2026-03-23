@@ -69,7 +69,7 @@ class HeaderRecorder:
 def parse_args() -> argparse.Namespace:
     cfg = load_config()
     p = argparse.ArgumentParser(
-        description="Compare Foundry SDK web search tool path vs OpenAI native web_search path on the same cases."
+        description="Compare Foundry SDK web search tool path vs direct web_search path on the same cases."
     )
     p.add_argument("--model", default=cfg.default_model_deployment_name)
     p.add_argument(
@@ -215,7 +215,7 @@ def _run_foundry_case(
         urls = sorted(set(citation_urls))
         observed_urls = sorted({_normalize_url(u) for u in (urls + _extract_urls_from_text(output_text)) if u})
         return CaseResult(
-            engine="foundry_sdk_web_search_preview_path",
+            engine="foundry_sdk_web_search_path",
             case_name=case_name,
             success=True,
             status_code=recorder.status_code,
@@ -243,7 +243,7 @@ def _run_foundry_case(
             except Exception:  # noqa: BLE001
                 pass
         return CaseResult(
-            engine="foundry_sdk_web_search_preview_path",
+            engine="foundry_sdk_web_search_path",
             case_name=case_name,
             success=False,
             status_code=status,
@@ -317,7 +317,7 @@ def _run_openai_native_case(
         urls = sorted(set(citation_urls))
         observed_urls = sorted({_normalize_url(u) for u in (urls + _extract_urls_from_text(output_text)) if u})
         return CaseResult(
-            engine="openai_native_web_search",
+            engine="direct_web_search",
             case_name=case_name,
             success=True,
             status_code=recorder.status_code,
@@ -345,7 +345,7 @@ def _run_openai_native_case(
             except Exception:  # noqa: BLE001
                 pass
         return CaseResult(
-            engine="openai_native_web_search",
+            engine="direct_web_search",
             case_name=case_name,
             success=False,
             status_code=status,
@@ -391,8 +391,8 @@ def _write_reports(run_id: str, out_dir: Path, metadata: dict[str, Any], rows: l
     lines.append("|---|---:|---:|---:|---:|---:|")
     case_names = sorted({r.case_name for r in rows})
     for case in case_names:
-        foundry = next((r for r in rows if r.case_name == case and r.engine == "foundry_sdk_web_search_preview_path"), None)
-        native = next((r for r in rows if r.case_name == case and r.engine == "openai_native_web_search"), None)
+        foundry = next((r for r in rows if r.case_name == case and r.engine == "foundry_sdk_web_search_path"), None)
+        native = next((r for r in rows if r.case_name == case and r.engine == "direct_web_search"), None)
         f_urls = set(foundry.observed_urls if foundry and foundry.success else [])
         n_urls = set(native.observed_urls if native and native.success else [])
         overlap = f_urls.intersection(n_urls)
@@ -496,7 +496,7 @@ def main() -> None:
                         f"  success={row.success} status={row.status_code} latency_ms={row.latency_ms} citations={row.citation_count}"
                     )
 
-        # OpenAI native web_search path over AOAI resource endpoint.
+        # Direct web_search path over AOAI resource endpoint.
         native_recorder = HeaderRecorder()
         with OpenAI(
             base_url=f"https://{cfg.resource_name}.openai.azure.com/openai/v1/",

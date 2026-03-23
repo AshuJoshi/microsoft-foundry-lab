@@ -38,9 +38,9 @@ This area contains exploratory work, probes, and architecture artifacts.
 - `exploration/deep_dive/agents_memory_exploration.py`: explores agent+memory behavior with SDK and request metadata capture.
 - `exploration/deep_dive/probe_embedding_model.py`: probes embedding deployment behavior across endpoint modes.
 - `exploration/deep_dive/run_memory_docs_sample.py`: runs a docs-aligned memory sample workflow end-to-end.
-- `exploration/deep_dive/web_search_foundry_vs_openai_native.py`: compares Foundry SDK web-search-tool path against OpenAI native `web_search` and computes per-case URL overlap/differences.
+- `exploration/deep_dive/web_search_foundry_vs_openai_native.py`: compares Foundry SDK web-search-tool path against direct `web_search` and computes per-case URL overlap/differences.
 - `exploration/deep_dive/cases/web_search_foundry_vs_openai_native.json`: reusable case templates for web-search result comparison (`{topic}`, `{since_date}`, `{days_window}`).
-- `exploration/deep_dive/search_prompt_probe.py`: direct Responses API probe for `web_search_preview`, comparing `aoai_responses` and `project_responses` with citation/date extraction, annotation capture, output item types, and optional location/context-size tool parameters.
+- `exploration/deep_dive/search_prompt_probe.py`: direct Responses API probe for `web_search`, comparing `aoai_responses` and `project_responses` with citation/date extraction, annotation capture, output item types, and optional location/context-size tool parameters.
 - `exploration/deep_dive/search_agent_probe.py`: agent-based probe for Foundry `WebSearchTool` using a temporary Prompt agent and remote conversation, with citation annotation capture and optional streaming.
 - `exploration/deep_dive/search_bing_grounding_probe.py`: agent-based probe for `BingGroundingTool` using a project `GroundingWithBingSearch` connection, including citation annotation capture and Bing-specific options such as `market`, `set_lang`, `count`, and `freshness`.
 - `exploration/deep_dive/list_search_tool_resources.py`: inspects project connections and flags search-related resources/configuration visible through the SDK.

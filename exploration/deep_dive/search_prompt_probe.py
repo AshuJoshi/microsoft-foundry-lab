@@ -74,7 +74,7 @@ class HeaderRecorder:
 
 def parse_args() -> argparse.Namespace:
     cfg = load_config()
-    p = argparse.ArgumentParser(description="Direct prompt-based probe for web_search_preview on Responses API.")
+    p = argparse.ArgumentParser(description="Direct prompt-based probe for web_search on the Responses API.")
     p.add_argument("--model", default=cfg.default_model_deployment_name, help="Deployment/model name to test.")
     p.add_argument("--topic", default="Microsoft Foundry announcements", help="Topic substituted into prompt cases.")
     p.add_argument("--days-window", type=int, default=30, help="Date window for time-bounded prompts.")
@@ -98,7 +98,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument(
         "--search-context-size",
         default="",
-        help="Optional search context size for web_search_preview, e.g. low, medium, high.",
+        help="Optional search context size for web_search, e.g. low, medium, high.",
     )
     return p.parse_args()
 
@@ -454,7 +454,7 @@ def main() -> None:
     }
 
     tool_spec: dict[str, Any] = {
-        "type": "web_search_preview",
+        "type": "web_search",
         "user_location": {
             "type": "approximate",
             "country": args.country,
