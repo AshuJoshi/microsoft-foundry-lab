@@ -47,6 +47,7 @@ This area contains exploratory work, probes, and architecture artifacts.
 - `exploration/deep_dive/agent_context_limit_probe.py`: batch probe for growing a single Prompt-agent conversation with repeated stuffing/recall turns to study context pressure, throttling, and recall behavior.
 - `exploration/deep_dive/agent_large_tool_payload_probe.py`: Prompt-agent probe that uses a large local tool payload to stress the remote conversation with oversized tool outputs instead of plain user-message stuffing.
 - `exploration/deep_dive/agent_context_stepwise_probe.py`: stepwise Prompt-agent trace probe that preserves the same remote agent and conversation across separate invocations for portal trace inspection and stateful conversation experiments.
+- `exploration/deep_dive/agent_file_search_stepwise_probe.py`: stepwise Prompt-agent file-search probe that preserves the same remote agent and conversation across separate invocations for portal testing and stateful retrieval experiments. Uses the cached vector store from `vector_store_index.py` and supports named invoice-validation cases, arbitrary prompts, and concise state summaries.
 - `exploration/deep_dive/agent_web_search_stepwise_probe.py`: stepwise Prompt-agent web-search probe that preserves the same remote agent and conversation across separate invocations for portal testing, later published-agent comparison, and stateful search experiments. Supports named search cases, arbitrary prompts, and concise state summaries.
 - `exploration/deep_dive/data_assets_inspect.py`: inspects the relationship between runtime root `/files`, vector stores, and the cached vector store file attachments; useful for understanding portal `Datasets` vs `Indexes` behavior and identifying orphaned uploaded files.
 - `exploration/deep_dive/vector_store_index.py`: creates or reuses a vector store for file-search experiments, either from explicit file paths or a tracked sample corpus such as `invoices`.
@@ -105,6 +106,12 @@ uv run exploration/deep_dive/agent_context_stepwise_probe.py --state exploration
 uv run exploration/deep_dive/agent_context_stepwise_probe.py --state exploration/deep_dive/output/run_001/ctxstep.state.json stuff --block-chars 6000 --truncation auto
 uv run exploration/deep_dive/agent_context_stepwise_probe.py --state exploration/deep_dive/output/run_001/ctxstep.state.json recall --truncation auto
 uv run exploration/deep_dive/agent_context_stepwise_probe.py --state exploration/deep_dive/output/run_001/ctxstep.state.json cleanup --delete-conversation --delete-agent
+uv run exploration/deep_dive/agent_file_search_stepwise_probe.py create-agent
+uv run exploration/deep_dive/agent_file_search_stepwise_probe.py --state exploration/deep_dive/output/agent_file_search_stepwise_<run_id>/state.json create-conversation
+uv run exploration/deep_dive/agent_file_search_stepwise_probe.py --state exploration/deep_dive/output/agent_file_search_stepwise_<run_id>/state.json ask-case --case vendor
+uv run exploration/deep_dive/agent_file_search_stepwise_probe.py --state exploration/deep_dive/output/agent_file_search_stepwise_<run_id>/state.json ask --message "Which invoice has the highest total due, and what is that amount? Answer in one sentence."
+uv run exploration/deep_dive/agent_file_search_stepwise_probe.py --state exploration/deep_dive/output/agent_file_search_stepwise_<run_id>/state.json show-state
+uv run exploration/deep_dive/agent_file_search_stepwise_probe.py --state exploration/deep_dive/output/agent_file_search_stepwise_<run_id>/state.json cleanup --delete-conversation --delete-agent
 uv run exploration/deep_dive/agent_web_search_stepwise_probe.py --model gpt-5.4 create-agent
 uv run exploration/deep_dive/agent_web_search_stepwise_probe.py --state exploration/deep_dive/output/agent_web_search_stepwise_<run_id>/state.json create-conversation
 uv run exploration/deep_dive/agent_web_search_stepwise_probe.py --state exploration/deep_dive/output/agent_web_search_stepwise_<run_id>/state.json ask-case --case baseline
