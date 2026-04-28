@@ -42,6 +42,7 @@ This area contains exploratory work, probes, and architecture artifacts.
 - `exploration/deep_dive/cases/web_search_foundry_vs_openai_native.json`: reusable case templates for web-search result comparison (`{topic}`, `{since_date}`, `{days_window}`).
 - `exploration/deep_dive/search_prompt_probe.py`: direct Responses API probe for `web_search`, comparing `aoai_responses` and `project_responses` with citation/date extraction, annotation capture, output item types, and optional location/context-size tool parameters.
 - `exploration/deep_dive/search_agent_probe.py`: agent-based probe for Foundry `WebSearchTool` using a temporary Prompt agent and remote conversation, with citation annotation capture and optional streaming.
+- `exploration/deep_dive/search_agent_probe_v2.py`: V2 of `search_agent_probe.py` — adds a follow-up search turn within the same conversation after each initial turn. Tests whether the model can issue a second web-search tool call in an ongoing conversation (reported to fail with some Claude models). Use `--no-followup` to revert to single-turn behavior.
 - `exploration/deep_dive/search_bing_grounding_probe.py`: agent-based probe for `BingGroundingTool` using a project `GroundingWithBingSearch` connection, including citation annotation capture and Bing-specific options such as `market`, `set_lang`, `count`, and `freshness`.
 - `exploration/deep_dive/list_search_tool_resources.py`: inspects project connections and flags search-related resources/configuration visible through the SDK.
 - `exploration/deep_dive/agent_context_limit_probe.py`: batch probe for growing a single Prompt-agent conversation with repeated stuffing/recall turns to study context pressure, throttling, and recall behavior.
@@ -97,6 +98,9 @@ uv run exploration/deep_dive/web_search_foundry_vs_openai_native.py --model gpt-
 uv run exploration/deep_dive/search_prompt_probe.py --model gpt-5.4 --runs 1 --log-level INFO
 uv run exploration/deep_dive/search_agent_probe.py --model gpt-5.4 --runs 1 --log-level INFO
 uv run exploration/deep_dive/search_agent_probe.py --model model-router --runs 1 --country US --region WA --city Seattle --log-level INFO
+uv run exploration/deep_dive/search_agent_probe_v2.py --model gpt-5.4 --runs 1 --log-level INFO
+uv run exploration/deep_dive/search_agent_probe_v2.py --model claude-sonnet-4-6 --runs 1 --log-level INFO
+uv run exploration/deep_dive/search_agent_probe_v2.py --model gpt-5.4 --runs 1 --no-followup --log-level INFO
 uv run exploration/deep_dive/search_bing_grounding_probe.py --model gpt-5.1 --runs 1 --market en-US --set-lang en-US --count 5 --log-level INFO
 uv run exploration/deep_dive/list_search_tool_resources.py --log-level INFO
 uv run exploration/deep_dive/agent_context_limit_probe.py --model gpt-5.1 --target-input-tokens 272000 --block-chars 6000 --max-turns 30 --max-output-tokens 120 --sleep-seconds 3 --log-level INFO
