@@ -50,15 +50,25 @@ This area contains exploratory work, probes, and architecture artifacts.
 - `exploration/deep_dive/agent_context_stepwise_probe.py`: stepwise Prompt-agent trace probe that preserves the same remote agent and conversation across separate invocations for portal trace inspection and stateful conversation experiments.
 - `exploration/deep_dive/agent_file_search_stepwise_probe.py`: stepwise Prompt-agent file-search probe that preserves the same remote agent and conversation across separate invocations for portal testing and stateful retrieval experiments. Uses the cached vector store from `vector_store_index.py` and supports named invoice-validation cases, arbitrary prompts, and concise state summaries.
 - `exploration/deep_dive/agent_web_search_stepwise_probe.py`: stepwise Prompt-agent web-search probe that preserves the same remote agent and conversation across separate invocations for portal testing, later published-agent comparison, and stateful search experiments. Supports named search cases, arbitrary prompts, and concise state summaries.
+- `exploration/deep_dive/ai_search_index_setup.py`: creates or updates the workshop-style Azure AI Search indexes (`hrdocs`, `healthdocs`) from `samplecode/fiq/data/index-data/` and uploads the sample JSONL content.
+- `exploration/deep_dive/agent_ai_search_probe.py`: agent-based probe for `AzureAISearchTool` using an existing Foundry project connection to Azure AI Search and deterministic workshop-derived cases. Captures message-level URL citations when present, but zero citations can still indicate an index-schema limitation rather than tool failure if the index lacks citation-friendly source URL/title fields.
+- `exploration/deep_dive/fiq_knowledge_setup.py`: creates or updates Azure AI Search knowledge sources and a knowledge base in `extractiveData` mode, then caches the resulting MCP endpoint.
+- `exploration/deep_dive/fiq_project_connection_setup.py`: creates or updates the Foundry project connection that points to the knowledge-base MCP endpoint with `ProjectManagedIdentity`.
+- `exploration/deep_dive/agent_foundry_iq_probe.py`: agent-based probe for the Foundry IQ path using `MCPTool` and deterministic knowledge-base cases.
 - `exploration/deep_dive/data_assets_inspect.py`: inspects the relationship between runtime root `/files`, vector stores, and the cached vector store file attachments; useful for understanding portal `Datasets` vs `Indexes` behavior and identifying orphaned uploaded files.
 - `exploration/deep_dive/vector_store_index.py`: creates or reuses a vector store for file-search experiments, either from explicit file paths or a tracked sample corpus such as `invoices`.
 - `exploration/deep_dive/vector_store_inspect.py`: inspects the cached vector store and lists the files attached to it.
 - `exploration/deep_dive/vector_store_delete.py`: deletes the cached vector store and optionally removes the local cache file.
 - `exploration/deep_dive/agent_file_search_probe.py`: agent-based probe for `FileSearchTool` using a temporary Prompt agent, with invoice-specific validation cases, response-shape capture, file-citation capture, and `file_search_call.results` capture.
 
+## Utility Scripts
+
+- `scripts/ai_search_project_connection_setup.py`: creates or updates the direct `CognitiveSearch` Foundry project connection used by `AzureAISearchTool`. Prefer `--auth-type AAD` first when the Foundry project managed identity already has Search RBAC.
+
 ## Sample Data
 
 - `exploration/sample_data/invoices/`: tracked plain-text invoice corpus used by the file-search probes. The files have stable invoice IDs, PO numbers, vendors, totals, and dates so retrieval behavior can be validated deterministically.
+- `exploration/sample_data/fiq/index-data/`: tracked Azure AI Search / Foundry IQ sample corpus copied from the workshop materials and used by the AI Search and Foundry IQ setup scripts.
 
 ## Environment Inputs
 
@@ -70,6 +80,14 @@ All deep-dive scripts load from repo-root `config.py`, which reads `.env`.
 - `FOUNDRY_PROJECT_NAME`
 - `AGENT_NAME_PREFIX` (preferred)
 - `BUGBASH_AGENT_NAME_PREFIX` (legacy fallback)
+- `AZURE_SEARCH_SERVICE_ENDPOINT`
+- `AZURE_SEARCH_ADMIN_KEY`
+- `AZURE_OPENAI_ENDPOINT`
+- `AZURE_OPENAI_KEY`
+- `AZURE_OPENAI_CHATGPT_DEPLOYMENT`
+- `AZURE_OPENAI_CHATGPT_MODEL_NAME`
+- `PROJECT_RESOURCE_ID`
+- `PROJECT_CONNECTION_NAME`
 
 ## Common Commands
 
@@ -122,6 +140,12 @@ uv run exploration/deep_dive/agent_web_search_stepwise_probe.py --state explorat
 uv run exploration/deep_dive/agent_web_search_stepwise_probe.py --state exploration/deep_dive/output/agent_web_search_stepwise_<run_id>/state.json ask --message "Find exactly 2 Microsoft Foundry updates from the last 30 days. Prefer announcement or blog posts over overview documentation pages. For each, include the date, a one-sentence summary, and a source link."
 uv run exploration/deep_dive/agent_web_search_stepwise_probe.py --state exploration/deep_dive/output/agent_web_search_stepwise_<run_id>/state.json show-state --summary
 uv run exploration/deep_dive/agent_web_search_stepwise_probe.py --state exploration/deep_dive/output/agent_web_search_stepwise_<run_id>/state.json cleanup --delete-conversation --delete-agent
+uv run exploration/deep_dive/ai_search_index_setup.py --indexes hrdocs,healthdocs --log-level INFO
+uv run scripts/ai_search_project_connection_setup.py --connection-name ai-search-direct --auth-type AAD
+uv run exploration/deep_dive/agent_ai_search_probe.py --model gpt-5.1 --cases vacation_senior,mental_health_copay,unknown --project-connection-name <ai_search_connection_name> --runs 1 --log-level INFO
+uv run exploration/deep_dive/fiq_knowledge_setup.py --knowledge-base-name zava-agentic-kb --log-level INFO
+uv run exploration/deep_dive/fiq_project_connection_setup.py --project-connection-name fiq-knowledge-base --log-level INFO
+uv run exploration/deep_dive/agent_foundry_iq_probe.py --model gpt-5.1 --cases hr_policy,health_fact,cross_source_compare,unknown --runs 1 --log-level INFO
 uv run exploration/deep_dive/data_assets_inspect.py --log-level INFO
 uv run exploration/deep_dive/vector_store_index.py --sample-corpus invoices --log-level INFO
 uv run exploration/deep_dive/vector_store_inspect.py --log-level INFO

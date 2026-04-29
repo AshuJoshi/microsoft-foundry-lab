@@ -1,0 +1,30 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": {
+      "value": "<uami-region>"
+    },
+    "userAssignedIdentityName": {
+      "value": "<fiq-uami-name>"
+    },
+    "searchServiceName": {
+      "value": "<existing-search-service-name>"
+    },
+    "openAiAccountResourceGroup": {
+      "value": "<resource-group-containing-foundry-or-openai-account>"
+    },
+    "openAiAccountName": {
+      "value": "<foundry-or-openai-account-name>"
+    },
+    "assignCognitiveServicesOpenAiUser": {
+      "value": true
+    },
+    "assignAzureAiUser": {
+      "value": true
+    },
+    "assignCognitiveServicesUser": {
+      "value": true
+    }
+  }
+}
