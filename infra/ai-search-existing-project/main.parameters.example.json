@@ -1,0 +1,36 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": {
+      "value": "<azure-region>"
+    },
+    "searchServiceName": {
+      "value": "<globally-unique-search-service-name>"
+    },
+    "searchServiceSku": {
+      "value": "standard"
+    },
+    "userObjectId": {
+      "value": "<entra-user-object-id>"
+    },
+    "foundryProjectPrincipalId": {
+      "value": "<foundry-project-managed-identity-principal-id>"
+    },
+    "openAiAccountName": {
+      "value": "<foundry-or-openai-account-name>"
+    },
+    "openAiAccountResourceGroup": {
+      "value": "<resource-group-containing-foundry-or-openai-account>"
+    },
+    "assignFoundryProjectSearchIndexReader": {
+      "value": true
+    },
+    "assignFoundryProjectSearchIndexContributor": {
+      "value": true
+    },
+    "assignFoundryProjectSearchServiceContributor": {
+      "value": true
+    }
+  }
+}
